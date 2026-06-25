@@ -6,6 +6,7 @@ import com.intellij.ui.JBColor;
 import com.intellij.ui.table.JBTable;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
+import utils.LogUtil;
 import utils.PinYinUtils;
 import utils.WindowUtils;
 
@@ -65,7 +66,7 @@ public abstract class FundRefreshHandler extends DefaultTableModel {
             refreshColorful(!colorful);
         } catch (Exception e) {
             // 容错处理
-            System.err.println("Failed to refresh colorful: " + e.getMessage());
+            LogUtil.info("Failed to refresh colorful: " + e.getMessage());
         }
     }
 
@@ -133,6 +134,7 @@ public abstract class FundRefreshHandler extends DefaultTableModel {
         DefaultTableCellRenderer cellRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 double temp = NumberUtils.toDouble(StringUtils.remove(Objects.toString(value), "%"));
                 if (temp > 0) {
                     if (colorful) {
@@ -147,10 +149,9 @@ public abstract class FundRefreshHandler extends DefaultTableModel {
                         setForeground(JBColor.GRAY);
                     }
                 } else if (temp == 0) {
-                    Color orgin = getForeground();
-                    setForeground(orgin);
+                    setForeground(JBColor.foreground());
                 }
-                return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                return component;
             }
         };
 

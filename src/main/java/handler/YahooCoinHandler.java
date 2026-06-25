@@ -57,7 +57,7 @@ public class YahooCoinHandler extends CoinRefreshHandler {
                 refreshTimeList.add(coinBean.getValueByColumn("更新时间",false));
             }
         }catch (Exception e){
-            System.out.println(e.toString());
+            LogUtil.info("Yahoo解析错误: " + e.toString());
         }
 
         String text = refreshTimeList.stream().sorted().findFirst().orElse("");

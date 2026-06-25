@@ -7,6 +7,7 @@ import utils.HttpClientPool;
 import utils.LogUtil;
 
 import javax.swing.*;
+import utils.ThreadPools;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -60,9 +61,10 @@ public class TianTianFundHandler extends FundRefreshHandler {
         }
 
         for (String code : codeList) {
-            new Thread(() -> {
+            final String c = code;
+            ThreadPools.getRefreshExecutor().execute(() -> {
                 try {
-                    String result = HttpClientPool.getHttpClient().get("https://fundgz.1234567.com.cn/js/" + code + ".js?rt=" + System.currentTimeMillis());
+                    String result = HttpClientPool.getHttpClient().get("https://fundgz.1234567.com.cn/js/" + c + ".js?rt=" + System.currentTimeMillis());
                     String json = result.substring(8, result.length() - 2);
                     if (!json.isEmpty()) {
                         FundBean bean = gson.fromJson(json, FundBean.class);
@@ -94,12 +96,12 @@ public class TianTianFundHandler extends FundRefreshHandler {
 
                         updateData(bean);
                     } else {
-                        LogUtil.info("Fund编码:[" + code + "]无法获取数据");
+                        LogUtil.info("Fund编码:[" + c + "]无法获取数据");
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    LogUtil.info("请求异常: " + e.getMessage());
                 }
-            }).start();
+            });
         }
         updateUI();
     }

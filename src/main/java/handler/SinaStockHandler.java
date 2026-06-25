@@ -44,7 +44,7 @@ public class SinaStockHandler extends StockRefreshHandler {
             //兼容原有设置
             String[] strArray;
             if (str.contains(",")) {
-                strArray = str.split(",");
+                strArray = str.split(",", -1);
             } else {
                 strArray = new String[]{str};
             }
@@ -91,38 +91,66 @@ public class SinaStockHandler extends StockRefreshHandler {
             bean.setTime(Strings.repeat("0", 8) + split[31]);
             bean.setMax(split[4]);
             bean.setMin(split[5]);
+            bean.setOpen(split[1]);       // 今开
+            bean.setPreClose(split[2]);   // 昨收
+            bean.setVolume(formatSinaVolume(split[8]));   // 成交量
+            bean.setAmount(formatSinaAmount(split[9]));   // 成交额
             bean.setBuyOne(split[10]);
             bean.setSellOne(split[20]);
 
             String costPriceStr = bean.getCostPrise();
-            if (StringUtils.isNotEmpty(costPriceStr)) {
-                BigDecimal costPriceDec = new BigDecimal(costPriceStr);
-                BigDecimal incomeDiff = now.add(costPriceDec.negate());
-                BigDecimal incomePercentDec = incomeDiff.divide(costPriceDec, 5, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.TEN)
-                        .multiply(BigDecimal.TEN)
-                        .setScale(3, RoundingMode.HALF_UP);
-                bean.setIncomePercent(incomePercentDec.toString());
+            if (StringUtils.isNotBlank(costPriceStr)) {
+                try {
+                    BigDecimal costPriceDec = new BigDecimal(costPriceStr);
+                    BigDecimal incomeDiff = now.add(costPriceDec.negate());
+                    if (costPriceDec.compareTo(BigDecimal.ZERO) <= 0) {
+                        bean.setIncomePercent("0");
+                    } else {
+                        BigDecimal incomePercentDec = incomeDiff.divide(costPriceDec, 5, RoundingMode.HALF_UP)
+                                .multiply(BigDecimal.TEN)
+                                .multiply(BigDecimal.TEN)
+                                .setScale(3, RoundingMode.HALF_UP);
+                        bean.setIncomePercent(incomePercentDec.toString());
+                    }
 
-                String bondStr = bean.getBonds();
-                if (StringUtils.isNotEmpty(bondStr)) {
-                    BigDecimal bondDec = new BigDecimal(bondStr);
-                    BigDecimal incomeDec = incomeDiff.multiply(bondDec)
-                            .setScale(2, RoundingMode.HALF_UP);
-                    bean.setIncome(incomeDec.toString());
+                    String bondStr = bean.getBonds();
+                    if (StringUtils.isNotBlank(bondStr)) {
+                        BigDecimal bondDec = new BigDecimal(bondStr);
+                        BigDecimal incomeDec = incomeDiff.multiply(bondDec)
+                                .setScale(2, RoundingMode.HALF_UP);
+                        bean.setIncome(incomeDec.toString());
+                    }
+                } catch (NumberFormatException ignore) {
                 }
             }
 
             updateData(bean);
             refreshTimeList.add(split[31]);
         }
+        // 所有数据加载完毕后，重新计算仓位占比（不再触发全表重绘，单行更新已由 updateRow/setValueAt 触发）
+        recalcAllPositionRatios();
 
-        String text = refreshTimeList.stream().sorted().findFirst().orElse("");
+        // 通知外部（例如 StockWindow）数据已刷新，以便即时更新持仓统计
+        try { notifyDataRefreshed(); } catch (Exception ignore) {}
+
+        String text = refreshTimeList.stream().sorted().findFirst().orElse("--");
         SwingUtilities.invokeLater(() -> refreshTimeLabel.setText(text));
+    }
+
+    private String formatSinaVolume(String v) {
+        if (v == null || v.isEmpty() || "--".equals(v)) return "--";
+        try { return new BigDecimal(v).movePointLeft(2).stripTrailingZeros().toPlainString(); }
+        catch (NumberFormatException e) { return v; }
+    }
+    private String formatSinaAmount(String v) {
+        if (v == null || v.isEmpty() || "--".equals(v)) return "--";
+        try { return new BigDecimal(v).movePointLeft(6).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString(); }
+        catch (NumberFormatException e) { return v; }
     }
 
     @Override
     public void stopHandle() {
         LogUtil.info("leeks stock 自动刷新关闭!");
+        try { shutdownUpdateBatchTimer(); } catch (Exception ignore) {}
     }
 }

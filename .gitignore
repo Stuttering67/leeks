@@ -1,7 +1,25 @@
-# Project exclude paths
 /.gradle/
 /build/
-/build/classes/java/main/
-/.idea/
 /out/
 /.idea/
+/.history/
+/*.iml
+/.classpath
+/.project
+/.settings/
+/.DS_Store
+*.log
+/.cache/
+/.vscode/
+/.idea-sandbox/
+/.idea_modules/
+.classpath
+.project
+/.settings# Project exclude paths
+/.gradle/
+# Ignore all build outputs except distributions
+/build/
+/build/distributions/
+/build/distributions/*
+
+

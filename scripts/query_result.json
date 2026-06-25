@@ -1,0 +1,184 @@
+﻿{
+    "account":  1,
+    "totalAmount":  2277031.90,
+    "dayGain":  0,
+    "cumProfit":  481567.00,
+    "positions":  [
+                      {
+                          "code":  "sh515880",
+                          "name":  "通信ETF国泰",
+                          "bonds":  301400,
+                          "now":  1.794,
+                          "change":  null,
+                          "totalAmount":  540711.60,
+                          "dayGain":  null,
+                          "cumProfit":  318579.80,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sz159967",
+                          "name":  "创业板成长ETF华夏",
+                          "bonds":  264300,
+                          "now":  1.016,
+                          "change":  null,
+                          "totalAmount":  268528.80,
+                          "dayGain":  null,
+                          "cumProfit":  38587.80,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sh513300",
+                          "name":  "纳斯达克ETF华夏",
+                          "bonds":  68900,
+                          "now":  2.657,
+                          "change":  null,
+                          "totalAmount":  183067.30,
+                          "dayGain":  null,
+                          "cumProfit":  -13435.50,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sz159516",
+                          "name":  "半导体设备ETF国泰",
+                          "bonds":  56400,
+                          "now":  1.568,
+                          "change":  null,
+                          "totalAmount":  88435.20,
+                          "dayGain":  null,
+                          "cumProfit":  1974.00,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sz002384",
+                          "name":  "东山精密",
+                          "bonds":  1400,
+                          "now":  255.02,
+                          "change":  null,
+                          "totalAmount":  357028.00,
+                          "dayGain":  null,
+                          "cumProfit":  60736.20,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sh600487",
+                          "name":  "亨通光电",
+                          "bonds":  1400,
+                          "now":  117.31,
+                          "change":  null,
+                          "totalAmount":  164234.00,
+                          "dayGain":  null,
+                          "cumProfit":  28730.80,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sz002222",
+                          "name":  "福晶科技",
+                          "bonds":  500,
+                          "now":  93.00,
+                          "change":  null,
+                          "totalAmount":  46500.00,
+                          "dayGain":  null,
+                          "cumProfit":  -3608.00,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sh603052",
+                          "name":  "可川科技",
+                          "bonds":  300,
+                          "now":  90.12,
+                          "change":  null,
+                          "totalAmount":  27036.00,
+                          "dayGain":  null,
+                          "cumProfit":  -247046.40,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sh603083",
+                          "name":  "剑桥科技",
+                          "bonds":  100,
+                          "now":  238.37,
+                          "change":  null,
+                          "totalAmount":  23837.00,
+                          "dayGain":  null,
+                          "cumProfit":  6559.20,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "hk01888",
+                          "name":  "建滔积层板",
+                          "bonds":  2000,
+                          "now":  87.250,
+                          "change":  null,
+                          "totalAmount":  174500.00,
+                          "dayGain":  null,
+                          "cumProfit":  77330.00,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sh600176",
+                          "name":  "中国巨石",
+                          "bonds":  2600,
+                          "now":  58.93,
+                          "change":  null,
+                          "totalAmount":  153218.00,
+                          "dayGain":  null,
+                          "cumProfit":  49735.40,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "hk02476",
+                          "name":  "胜宏科技",
+                          "bonds":  200,
+                          "now":  370.200,
+                          "change":  null,
+                          "totalAmount":  74040.00,
+                          "dayGain":  null,
+                          "cumProfit":  -8492.40,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sz002463",
+                          "name":  "沪电股份",
+                          "bonds":  200,
+                          "now":  138.50,
+                          "change":  null,
+                          "totalAmount":  27700.00,
+                          "dayGain":  null,
+                          "cumProfit":  -1820.60,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sh601208",
+                          "name":  "东材科技",
+                          "bonds":  700,
+                          "now":  71.85,
+                          "change":  null,
+                          "totalAmount":  50295.00,
+                          "dayGain":  null,
+                          "cumProfit":  15443.40,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sz001309",
+                          "name":  "德明利",
+                          "bonds":  100,
+                          "now":  755.01,
+                          "change":  null,
+                          "totalAmount":  75501.00,
+                          "dayGain":  null,
+                          "cumProfit":  155018.70,
+                          "dayGainRate":  null
+                      },
+                      {
+                          "code":  "sh605376",
+                          "name":  "博迁新材",
+                          "bonds":  100,
+                          "now":  224.00,
+                          "change":  null,
+                          "totalAmount":  22400.00,
+                          "dayGain":  null,
+                          "cumProfit":  3274.60,
+                          "dayGainRate":  null
+                      }
+                  ]
+}

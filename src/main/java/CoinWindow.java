@@ -1,3 +1,5 @@
+package leeks;
+
 import com.intellij.icons.AllIcons;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.actionSystem.ActionToolbarPosition;
@@ -59,7 +61,10 @@ public class CoinWindow {
     }
 
     public CoinWindow() {
-
+        // 确保mPanel被初始化（GUI Designer表单编译依赖IDEA编译器，此处做防御）
+        if (mPanel == null) {
+            mPanel = new JPanel(new BorderLayout());
+        }
         //切换接口
         handler = new YahooCoinHandler(table,refreshTimeLabel);
 
@@ -92,8 +97,8 @@ public class CoinWindow {
 
     public static void apply() {
         if (handler != null) {
-            PropertiesComponent instance = PropertiesComponent.getInstance();
-            handler.setStriped(instance.getBoolean("key_table_striped"));
+            ConfigManager configManager = ConfigManager.getInstance();
+            handler.setStriped(configManager.isTableStriped());
             handler.clearRow();
             handler.setupTable(loadCoins());
             refresh();
@@ -101,28 +106,43 @@ public class CoinWindow {
     }
     public static void refresh() {
         if (handler != null) {
-            PropertiesComponent instance = PropertiesComponent.getInstance();
-            handler.refreshColorful(instance.getBoolean("key_colorful"));
+            ConfigManager configManager = ConfigManager.getInstance();
+            handler.refreshColorful(configManager.isColorfulEnabled());
             List<String> codes = loadCoins();
             if (CollectionUtils.isEmpty(codes)) {
                 stop(); //如果没有数据则不需要启动时钟任务浪费资源
             } else {
-                handler.handle(codes);
-                QuartzManager quartzManager = QuartzManager.getInstance(NAME);
-                HashMap<String, Object> dataMap = new HashMap<>();
-                dataMap.put(HandlerJob.KEY_HANDLER, handler);
-                dataMap.put(HandlerJob.KEY_CODES, codes);
-                String cronExpression = instance.getValue("key_cron_expression_coin");
-                if (StringUtils.isEmpty(cronExpression)) {
-                    cronExpression = "*/10 * * * * ?";
-                }
-                quartzManager.runJob(HandlerJob.class, cronExpression, dataMap);
+                // Run network refresh in background to avoid blocking EDT on plugin load
+                utils.ThreadPools.getRefreshExecutor().execute(() -> {
+                    try {
+                        handler.handle(codes);
+                    } catch (Exception ex) {
+                        utils.LogUtil.info("Coin refresh failed: " + ex.getMessage());
+                    }
+                    try {
+                        QuartzManager quartzManager = QuartzManager.getInstance(NAME); // 时钟任务
+                        HashMap<String, Object> dataMap = new HashMap<>();
+                        dataMap.put(HandlerJob.KEY_HANDLER, handler);
+                        dataMap.put(HandlerJob.KEY_CODES, codes);
+                        // 优先使用秒级刷新配置
+                        int sec = ConfigManager.getInstance().getCoinRefreshIntervalSeconds();
+                        if (sec > 0) {
+                            quartzManager.runJobWithInterval(HandlerJob.class, sec, dataMap);
+                        } else {
+                            String userCron = PropertiesComponent.getInstance().getValue(ConfigKeys.KEY_CRON_EXPRESSION_COIN);
+                            if (StringUtils.isNotBlank(userCron)) quartzManager.runJob(HandlerJob.class, userCron, dataMap);
+                            else quartzManager.runJob(HandlerJob.class, configManager.getCoinCronExpression(), dataMap);
+                        }
+                    } catch (Throwable qex) { utils.LogUtil.info("CoinQuartz schedule failed: " + qex.getMessage()); }
+                });
             }
         }
     }
 
     public static void stop() {
-        QuartzManager.getInstance(NAME).stopJob();
+        try {
+            QuartzManager.getInstance(NAME).stopJob();
+        } catch (Throwable ignore) { utils.LogUtil.info("CoinWindow.stop: stopJob exception: " + (ignore == null ? "null" : ignore.getMessage())); }
         if (handler != null) {
             handler.stopHandle();
         }

@@ -3,12 +3,20 @@ plugins {
     id 'org.jetbrains.intellij' version '1.17.3'
 }
 
+// Use Huawei mirror for JetBrains IntelliJ SDK
+repositories {
+    maven { url 'https://mirrors.huaweicloud.com/repository/maven/' }
+    maven { url 'https://maven.aliyun.com/repository/public' }
+    maven { url 'https://maven.aliyun.com/repository/google' }
+    mavenCentral()
+}
+
 group 'com.huage2580'
-version '2.9.4'
+version '5.0.0'
 
 java {
-    sourceCompatibility = '21'
-    targetCompatibility = '21'
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
 }
 
 
@@ -22,6 +30,15 @@ repositories {
 
 }
 
+// Configure IntelliJ Platform SDK repository mirror
+intellij {
+    // Use version-based SDK (need java-compiler for form compilation)
+    version.set('2023.1')
+    type.set('IC')
+    intellij.setUpdateSinceUntilBuild(false)
+    intellij.setSameSinceUntilBuild(false)
+}
+
 dependencies {
     testImplementation group: 'junit', name: 'junit', version: '4.12'
     implementation 'com.github.promeg:tinypinyin:2.0.3' // TinyPinyin核心包，约80KB
@@ -30,8 +47,6 @@ dependencies {
         exclude group: 'org.slf4j' // 与idea自带的冲突
         exclude group: 'com.mchange'
     }
-    //hutool
-    implementation group: 'cn.hutool', name: 'hutool-all', version: '5.8.13'
     //fastjson
     implementation group: 'com.alibaba', name: 'fastjson', version: '2.0.38'
     compileOnly(group: 'org.projectlombok', name: 'lombok', version: '1.18.30')
@@ -39,13 +54,7 @@ dependencies {
 }
 
 // See https://github.com/JetBrains/gradle-intellij-plugin/
-intellij {
-//    version '2023.3.1'
-    localPath.set('C:\\Users\\kmwei\\dev\\tool\\idea')
-//    localPath.set('E:\\tool\\idea')7
-    intellij.setUpdateSinceUntilBuild(true)
-    intellij.setSameSinceUntilBuild(false)
-}
+
 patchPluginXml {
     changeNotes.set("""
         v1.1 增加了股票的tab，采用腾讯的行情接口，股票轮询间隔10s  <br>
@@ -65,13 +74,32 @@ patchPluginXml {
         v2.6 优化代码 , 使用@data注解替换所有getter/setter方法  2. 新增卖一/买一手数表头显示  3. 优化程序开始初始化表头逻辑 , 新增如果添加/删除固定表头同时修改当前表头 -- by: RainyQing<br>
         v2.7 1. 新增按F7刷新所有股票/基金数据并进行添加/移除操作  2. 股票界面鼠标右键新增删除按钮 -- by: RainyQing<br>
         v2.8 新增点击股票代码行对应得持仓/成本价cell进入编辑模式 -- by: RainyQing<br>
-        v2.9 0. 修复置空成本价和持仓数据不正确bug  2. 新增单行选中股票使用快捷键delete键删除 -- by: RainyQing<br>
+        v2.9.0 1. 修复置空成本价和持仓数据不正确bug  2. 新增单行选中股票使用快捷键delete键删除 -- by: RainyQing<br>
         v2.9.1 修复插件兼容IDEA 2025.1 -- by: RainyQing<br>
         v2.9.2 1. 修复插件兼容IDEA 2025.2 from [RainyQing](https://github.com/RainyQing) 2. 新浪接口添加Referer头，接口调用升级为https(部分网络下http无法正常访问) from [fangzhengjin](https://github.com/fangzhengjin)
         v2.9.3 新增设置中关闭F7快捷键搜索(暂时解决快捷键冲突问题 , 后续再寻找更合适得方案)  from [RainyQing](https://github.com/RainyQing)
         v2.9.4 修复插件兼容IDEA 2025.3  from [RainyQing](https://github.com/RainyQing)
+        v2.9.5 新增拖动股票上下移动排序  from [RainyQing](https://github.com/RainyQing)
+        v2.9.6 修复插件兼容IDEA 2026.1  from [RainyQing](https://github.com/RainyQing)
+        v2.9.7 修复超级藏模式失效问题  from [RainyQing](https://github.com/RainyQing)
+        v2.9.8 1. 编辑第二条成本价和持仓会清空第一条成本价和持仓问题 2. 修复刷新按钮会把把成本价/持仓冲掉问题 3. 修复拖动和上下移动丢会丢失成本价和持仓数据问题  from [RainyQing](https://github.com/RainyQing)
+        v3.0.0 1. 新增东方财富数据源(支持A股/港股/美股实时行情) 2. 新增同花顺数据源(支持A股实时行情) 3. 新增iTick/QOS/智兔数服数据源(需注册免费token) 4. 数据源切换改为下拉框选择 5. 修复多处NPE崩溃风险 6. 优化HTTP请求超时及User-Agent 7. 清理死代码和重复逻辑 8. 全面加固插件稳定性
+        v3.1.0 新增股票分组功能: 支持自定义分组管理、分组过滤显示、右键设置分组
+        v3.2.0 新增分组删除功能
+        v3.2.1 新增持仓统计栏(持仓金额/当日收益/当日涨跌幅/累计收益) + 列可见性设置(隐藏最高价/最低价/卖一/买一/更新时间) + 港股汇率设置
+        v3.2.2 修复持仓统计栏显示和设置页崩溃
+        v3.2.3 修复设置页tabbedPane崩溃;简化colvis为程序化构建
+        v3.2.4 设置页入口改用IDEA标准方式;修复配置兼容
+        v3.2.5 修复form XML添加列可见性checkboxes+汇率输入框;修复colvis UI显示
+        v3.2.6 简化form XML结构
+        v3.2.7 修复tabbedPane操作导致的设置页NPE崩溃
+        v3.2.8 列可见性控件移至设置面板主区域显示
+        v3.2.9 panel1改用BoxLayout支持SOUTH添加colvis
+        v3.3.0 修复SettingsWindow包名错误;清理colvis代码
+        v3.3.1 修复settings页非stocktab不可见 + 移除重复代码
+        v3.3.3 1. 分组支持右键菜单(重命名/删除)和长按拖动排序 2. 持仓收益统计公式修正(累计收益=持仓数×(当前价-成本价)×汇率) 3. 设置页新增股票信息列(涨跌额/涨跌幅/当前价/收益率/收益)可见性勾选 4. 修复空if块/死代码/空指针风险等bug
       """)
-    sinceBuild.set('253')  //最低版本限制
+    sinceBuild.set('231')  //最低版本限制 (IDEA 2023.1+)
     untilBuild.set(null) //最高版本限制
 }
 
@@ -79,3 +107,63 @@ tasks.withType(JavaCompile) {
     options.encoding = "UTF-8"
 }
 buildSearchableOptions.enabled = false
+
+// Auto-increment plugin patch version before packaging
+def versionPattern = ~/(?m)^[ \t]*version\s*['"](\d+)\.(\d+)\.(\d+)['"]/ 
+tasks.register('incrementPluginPatchVersion') {
+    group = 'release'
+    description = 'Increment plugin patch version by 0.0.1 and update build.gradle and plugin.xml.'
+    doLast {
+        def buildFile = file('build.gradle')
+        def text = buildFile.getText('UTF-8')
+        def matcher = (text =~ versionPattern)
+        if (!matcher) {
+            println "No version pattern found in build.gradle, skipping increment."
+            return
+        }
+        def major = matcher[0][1].toInteger()
+        def minor = matcher[0][2].toInteger()
+        def patch = matcher[0][3].toInteger()
+        def newPatch = patch + 1
+        def newVersion = "${major}.${minor}.${newPatch}"
+        // Update project version for this build
+        project.version = newVersion
+        // Persist new version to build.gradle for future builds
+        def newText = text.replaceFirst(versionPattern, "version '${newVersion}'")
+        buildFile.withWriter('UTF-8') { it.write(newText) }
+        println "Updated build.gradle version to ${newVersion}"
+        // Update src plugin.xml display version if present
+        def pluginXmlFile = file('src/main/resources/META-INF/plugin.xml')
+        if (pluginXmlFile.exists()) {
+            def px = pluginXmlFile.getText('UTF-8')
+            if (px =~ /<version>.*<\/version>/) {
+                px = px.replaceFirst(/<version>.*<\/version>/, "<version>${newVersion}</version>")
+            } else if (px =~ /<name>.*<\/name>/) {
+                def nl = System.getProperty('line.separator')
+                px = px.replaceFirst(/(<name>.*?<\/name>)/, '\\$1' + nl + '    <version>' + newVersion + '</version>')
+            }
+            pluginXmlFile.withWriter('UTF-8') { it.write(px) }
+            println "Updated plugin.xml version to ${newVersion}"
+        } else {
+            println "plugin.xml not found at src/main/resources/META-INF/plugin.xml"
+        }
+    }
+}
+
+// Ensure increment runs before patching plugin xml and building plugin
+// Disabled for manual version control: use fixed version 5.0.0
+// tasks.named('patchPluginXml') {
+//     dependsOn tasks.named('incrementPluginPatchVersion')
+// }
+// tasks.named('buildPlugin') {
+//     dependsOn tasks.named('incrementPluginPatchVersion')
+// }
+
+// Add a task to generate ZIP and print path for CI/automation
+tasks.register('bumpAndBuildPlugin') {
+    group = 'release'
+    description = 'Convenience task: increment patch and build plugin (wrapper around buildPlugin).'
+    dependsOn tasks.named('incrementPluginPatchVersion')
+    dependsOn tasks.named('buildPlugin')
+}
+

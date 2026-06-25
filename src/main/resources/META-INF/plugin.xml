@@ -1,6 +1,7 @@
 <idea-plugin>
     <id>com.huage2580.leeks</id>
     <name>Leeks</name>
+    <version>5.0.0</version>
     <vendor email="huage2580@gmail.com" url="http://github.com/huge2580">huage2580</vendor>
 
     <description><![CDATA[
@@ -18,8 +19,8 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- Add your extensions here -->
-        <toolWindow anchor="left" id="leeks" factoryClass="FundWindow"/>
-        <applicationConfigurable id="leeks_settings" instance="SettingsWindow" displayName="Leeks"/>
+        <toolWindow anchor="left" id="leeks" factoryClass="leeks.FundWindow"/>
+        <applicationConfigurable id="leeks_settings" instance="leeks.SettingsWindow" displayName="Leeks"/>
         <notificationGroup id="Leeks Notification Group" displayType="BALLOON"/>
     </extensions>
 

@@ -41,6 +41,7 @@ public class HandlerJob implements Job {
             List<String> codes = (List<String>) mergedJobDataMap.get(KEY_CODES);
             if (handler instanceof StockRefreshHandler) {
                 ((StockRefreshHandler) handler).handle(codes);
+                ((StockRefreshHandler) handler).triggerAlertCheck();
             } else if (handler instanceof FundRefreshHandler) {
                 ((FundRefreshHandler) handler).handle(codes);
             } else if (handler instanceof CoinRefreshHandler) {

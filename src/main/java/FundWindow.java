@@ -1,3 +1,5 @@
+package leeks;
+
 import com.intellij.icons.AllIcons;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.actionSystem.ActionToolbarPosition;
@@ -23,6 +25,7 @@ import org.jetbrains.annotations.Nullable;
 import quartz.HandlerJob;
 import quartz.QuartzManager;
 import utils.HttpClientPool;
+import utils.ThreadPools;
 import utils.LogUtil;
 import utils.PopupsUiUtil;
 import utils.WindowUtils;
@@ -44,8 +47,8 @@ public class FundWindow implements ToolWindowFactory {
 
     static TianTianFundHandler fundRefreshHandler;
 
-    private StockWindow stockWindow = new StockWindow();
-    private CoinWindow coinWindow = new CoinWindow();
+    private StockWindow stockWindow;
+    private CoinWindow coinWindow;
 
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
@@ -53,16 +56,15 @@ public class FundWindow implements ToolWindowFactory {
         loadProxySetting();
 
         ContentFactory contentFactory = ContentFactory.getInstance();
-        Content content = contentFactory.createContent(mPanel, NAME, false);
-        //股票
-        Content content_stock = contentFactory.createContent(stockWindow.getmPanel(), StockWindow.NAME, false);
-        //虚拟货币
-        Content content_coin = contentFactory.createContent(coinWindow.getmPanel(), CoinWindow.NAME, false);
+        Content content = contentFactory.createContent(mPanel, "基金", false);
+        Content content_stock = contentFactory.createContent(stockWindow.getmPanel(), "股票", false);
+        Content content_coin = contentFactory.createContent(coinWindow.getmPanel(), "加密货币", false);
         ContentManager contentManager = toolWindow.getContentManager();
-        contentManager.addContent(content);
-        contentManager.addContent(content_stock);
-        contentManager.addContent(content_coin);
-        if (StringUtils.isEmpty(PropertiesComponent.getInstance().getValue("key_funds"))) {
+        if (!ConfigManager.getInstance().isTabHidden("fund")) contentManager.addContent(content);
+        if (!ConfigManager.getInstance().isTabHidden("stock")) contentManager.addContent(content_stock);
+        if (!ConfigManager.getInstance().isTabHidden("coin")) contentManager.addContent(content_coin);
+        if (contentManager.getContentCount() == 0) contentManager.addContent(content_stock);
+        if (ConfigManager.getInstance().getFundCodes().isEmpty()) {
             // 没有配置基金数据，选择展示股票
             contentManager.setSelectedContent(content_stock);
         }
@@ -78,13 +80,19 @@ public class FundWindow implements ToolWindowFactory {
     }
 
     private void loadProxySetting() {
-        String proxyStr = PropertiesComponent.getInstance().getValue("key_proxy");
+        String proxyStr = ConfigManager.getInstance().getProxySetting();
         HttpClientPool.getHttpClient().buildHttpClient(proxyStr);
     }
 
     @Override
     public void init(ToolWindow window) {
+        // 确保mPanel被初始化（GUI Designer表单编译依赖IDEA编译器，此处做防御）
+        if (mPanel == null) {
+            mPanel = new JPanel(new BorderLayout());
+        }
         // 重要：由于idea项目窗口可多个，导致FundWindow#init方法被多次调用，出现UI和逻辑错误(bug #53)，故加此判断解决
+        if (stockWindow == null) stockWindow = new StockWindow();
+        if (coinWindow == null) coinWindow = new CoinWindow();
         if (Objects.nonNull(fundRefreshHandler)) {
             LogUtil.info("Leeks UI已初始化");
             return;
@@ -190,8 +198,8 @@ public class FundWindow implements ToolWindowFactory {
 
     public static void apply() {
         if (fundRefreshHandler != null) {
-            PropertiesComponent instance = PropertiesComponent.getInstance();
-            fundRefreshHandler.setStriped(instance.getBoolean("key_table_striped"));
+            ConfigManager configManager = ConfigManager.getInstance();
+            fundRefreshHandler.setStriped(configManager.isTableStriped());
             fundRefreshHandler.clearRow();
             fundRefreshHandler.setupTable(loadFunds());
             refresh();
@@ -200,23 +208,33 @@ public class FundWindow implements ToolWindowFactory {
 
     public static void refresh() {
         if (fundRefreshHandler != null) {
-            PropertiesComponent instance = PropertiesComponent.getInstance();
-            boolean colorful = instance.getBoolean("key_colorful");
+            ConfigManager configManager = ConfigManager.getInstance();
+            boolean colorful = configManager.isColorfulEnabled();
             fundRefreshHandler.refreshColorful(colorful);
             List<String> codes = loadFunds();
             if (CollectionUtils.isEmpty(codes)) {
                 stop(); //如果没有数据则不需要启动时钟任务浪费资源
             } else {
                 fundRefreshHandler.handle(codes);
-                QuartzManager quartzManager = QuartzManager.getInstance(NAME); // 时钟任务
-                HashMap<String, Object> dataMap = new HashMap<>();
-                dataMap.put(HandlerJob.KEY_HANDLER, fundRefreshHandler);
-                dataMap.put(HandlerJob.KEY_CODES, codes);
-                String cronExpression = instance.getValue("key_cron_expression_fund");
-                if (StringUtils.isEmpty(cronExpression)) {
-                    cronExpression = "0 * * * * ?";
-                }
-                quartzManager.runJob(HandlerJob.class, cronExpression, dataMap);
+                // 在后台线程创建/更新调度器，避免在 EDT 上初始化 Quartz 导致卡顿
+                ThreadPools.getRefreshExecutor().execute(() -> {
+                    try {
+                        QuartzManager quartzManager = QuartzManager.getInstance(NAME); // 时钟任务
+                        HashMap<String, Object> dataMap = new HashMap<>();
+                        dataMap.put(HandlerJob.KEY_HANDLER, fundRefreshHandler);
+                        dataMap.put(HandlerJob.KEY_CODES, codes);
+                        int sec = ConfigManager.getInstance().getFundRefreshIntervalSeconds();
+                        if (sec > 0) {
+                            quartzManager.runJobWithInterval(HandlerJob.class, sec, dataMap);
+                        } else {
+                            String userCron = PropertiesComponent.getInstance().getValue(ConfigKeys.KEY_CRON_EXPRESSION_FUND);
+                            if (StringUtils.isNotBlank(userCron)) quartzManager.runJob(HandlerJob.class, userCron, dataMap);
+                            else quartzManager.runJob(HandlerJob.class, configManager.getFundCronExpression(), dataMap);
+                        }
+                    } catch (Throwable qex) {
+                        LogUtil.info("FundQuartz schedule failed: " + qex.getMessage());
+                    }
+                });
             }
         }
     }
