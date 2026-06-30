@@ -42,9 +42,11 @@ public class SettingsWindow implements Configurable {
     private JComboBox<String> stockSourceComboBox; // form 注入
     private JCheckBox cbColHigh, cbColLow, cbColSell1, cbColBuy1, cbColTime;
     private JCheckBox cbColChange, cbColChangePct, cbColNow, cbColIncomePct, cbColIncome;
-    private JCheckBox cbColPosCost, cbColPosValue, cbColDayPnl, cbColPosRatio;    private JCheckBox cbRiskAlert;
+    private JCheckBox cbColPosCost, cbColPosValue, cbColDayPnl, cbColPosRatio;
+    private JCheckBox cbRiskAlert;
     private JCheckBox cbAmountWan;
     private JTextField tfBackupPath;
+    private JCheckBox cbColYesterday;
     private JButton btnBackupPathBrowse;
     private JCheckBox cbBackupEnabled;
     private JCheckBox cbColOpen, cbColVolume, cbColAmount, cbColTurnover, cbColPE, cbColAmplitude, cbColVolRatio;
@@ -389,6 +391,7 @@ public class SettingsWindow implements Configurable {
         if (cbColOpen != null) ConfigManager.getInstance().saveBoolean("key_stock_col_open", cbColOpen.isSelected());
         if (cbColVolume != null) ConfigManager.getInstance().saveBoolean("key_stock_col_volume", cbColVolume.isSelected());
         if (cbColAmount != null) ConfigManager.getInstance().saveBoolean("key_stock_col_amount", cbColAmount.isSelected());
+        if (cbColYesterday != null) ConfigManager.getInstance().saveBoolean("key_stock_col_yesterday", cbColYesterday.isSelected());
         if (cbColTurnover != null) ConfigManager.getInstance().saveBoolean("key_stock_col_turnover", cbColTurnover.isSelected());
         if (cbColPE != null) ConfigManager.getInstance().saveBoolean("key_stock_col_pe", cbColPE.isSelected());
         if (cbColAmplitude != null) ConfigManager.getInstance().saveBoolean("key_stock_col_amplitude", cbColAmplitude.isSelected());
@@ -536,7 +539,7 @@ public class SettingsWindow implements Configurable {
         cbColDayPnl = mkCb("当日盈亏", pc);
         cbColPosRatio = mkCb("仓位", pc);
         cbColOpen = mkCb("今开", pc);     cbColVolume = mkCb("成交量", pc);
-        cbColAmount = mkCb("成交额", pc);
+        cbColAmount = mkCb("成交额", pc);   cbColYesterday = mkCb("昨日成交额", pc);
         cbColTurnover = mkCb("换手率", pc);  cbColPE = mkCb("市盈率", pc);
         cbColAmplitude = mkCb("振幅", pc);   cbColVolRatio = mkCb("量比", pc);
         JCheckBox cbTotal = mkCb("总市值(亿)", pc); JCheckBox cbFlow = mkCb("流通市值/亿", pc);
@@ -545,7 +548,7 @@ public class SettingsWindow implements Configurable {
         java.util.List<JCheckBox> colCbs = java.util.Arrays.asList(cbColHigh, cbColLow, cbColSell1, cbColBuy1, cbColTime,
                 cbColChange, cbColChangePct, cbColNow, cbColIncomePct, cbColIncome,
                 cbColPosCost, cbColPosValue, cbColDayPnl, cbColPosRatio,
-                cbColOpen, cbColVolume, cbColAmount, cbColTurnover, cbColPE, cbColAmplitude, cbColVolRatio,
+                cbColOpen, cbColVolume, cbColAmount, cbColYesterday, cbColTurnover, cbColPE, cbColAmplitude, cbColVolRatio,
                 cbTotal, cbFlow, cbOuter, cbInner);
         for (JCheckBox c : colCbs) {
             String cfg = c.getClientProperty("configKey") == null ? null : c.getClientProperty("configKey").toString();
@@ -714,7 +717,7 @@ public class SettingsWindow implements Configurable {
 
                         // columns
                         JsonObject cols = new JsonObject();
-                        String[] colKeys = {"key_stock_col_high","key_stock_col_low","key_stock_col_sell1","key_stock_col_buy1","key_stock_col_time","key_stock_col_change","key_stock_col_change_pct","key_stock_col_now","key_stock_col_income_pct","key_stock_col_income","key_stock_col_position_cost","key_stock_col_position_value","key_stock_col_day_pnl","key_stock_col_position_ratio","key_stock_col_open","key_stock_col_volume","key_stock_col_amount","key_stock_col_turnover","key_stock_col_pe","key_stock_col_amplitude","key_stock_col_volRatio","totalValue","flowValue","outerDisc","innerDisc"};
+                        String[] colKeys = {"key_stock_col_high","key_stock_col_low","key_stock_col_sell1","key_stock_col_buy1","key_stock_col_time","key_stock_col_change","key_stock_col_change_pct","key_stock_col_now","key_stock_col_income_pct","key_stock_col_income","key_stock_col_position_cost","key_stock_col_position_value","key_stock_col_day_pnl","key_stock_col_position_ratio","key_stock_col_open","key_stock_col_volume","key_stock_col_amount","key_stock_col_yesterday","key_stock_col_turnover","key_stock_col_pe","key_stock_col_amplitude","key_stock_col_volRatio","totalValue","flowValue","outerDisc","innerDisc"};
                         for (String k : colKeys) cols.addProperty(k, pc.getBoolean(k, true));
                         out.add("columns", cols);
 
@@ -801,6 +804,7 @@ public class SettingsWindow implements Configurable {
                                 if (cbColOpen != null) cbColOpen.setSelected(PropertiesComponent.getInstance().getBoolean("key_stock_col_open", true));
                                 if (cbColVolume != null) cbColVolume.setSelected(PropertiesComponent.getInstance().getBoolean("key_stock_col_volume", true));
                                 if (cbColAmount != null) cbColAmount.setSelected(PropertiesComponent.getInstance().getBoolean("key_stock_col_amount", true));
+                                if (cbColYesterday != null) cbColYesterday.setSelected(PropertiesComponent.getInstance().getBoolean("key_stock_col_yesterday", true));
                                 if (cbColTurnover != null) cbColTurnover.setSelected(PropertiesComponent.getInstance().getBoolean("key_stock_col_turnover", true));
                                 if (cbColPE != null) cbColPE.setSelected(PropertiesComponent.getInstance().getBoolean("key_stock_col_pe", true));
                                 if (cbColAmplitude != null) cbColAmplitude.setSelected(PropertiesComponent.getInstance().getBoolean("key_stock_col_amplitude", true));
@@ -920,7 +924,7 @@ public class SettingsWindow implements Configurable {
                 text.equals("持仓成本") ? "position_cost" : text.equals("持仓市值") ? "position_value" :
                 text.equals("当日盈亏") ? "day_pnl" : text.equals("仓位") ? "position_ratio" :
                 text.equals("今开") ? "open" : text.equals("成交量") ? "volume" :
-                text.equals("成交额") ? "amount" : text.equals("换手率") ? "turnover" :
+                text.equals("成交额") ? "amount" : text.equals("昨日成交额") ? "yesterday" : text.equals("换手率") ? "turnover" :
                 text.equals("市盈率") ? "pe" : text.equals("振幅") ? "amplitude" :
             text.equals("量比") ? "volRatio" :
             text.equals("总市值(亿)") ? "totalValue" : text.equals("流通市值/亿") ? "flowValue" :

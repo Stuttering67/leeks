@@ -22,6 +22,7 @@ import quartz.QuartzManager;
 import utils.LogUtil;
 import utils.PopupsUiUtil;
 import utils.WindowUtils;
+import utils.YesterdayAmountStorage;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -1195,17 +1196,7 @@ public class StockWindow {
                 }
                 // 2) 直接从本地缓存读取昨日成交额，避免误用当前行情接口返回的当日成交额
                 try {
-                    String yRaw = PropertiesComponent.getInstance().getValue("key_yesterday_amounts", "");
-                    if (StringUtils.isNotBlank(yRaw)) {
-                        for (String p : yRaw.split(";")) {
-                            if (StringUtils.isBlank(p)) continue;
-                            String[] kv = p.split("=");
-                            if (kv.length == 2 && kv[0].equalsIgnoreCase(code)) {
-                                yesterdayAmount = formatAmountForImportant(kv[1]);
-                                break;
-                            }
-                        }
-                    }
+                    yesterdayAmount = formatAmountForImportant(YesterdayAmountStorage.getForCode(code));
                 } catch (Exception ignore) {}
             } catch (Exception ignore) {}
             JLabel yesterdayLbl = new JLabel(yesterdayAmount);
@@ -1419,40 +1410,46 @@ public class StockWindow {
                 try {
                     // Only save when today is a trading day
                     if (!isMarketOpenToday()) return;
-                    String raw = PropertiesComponent.getInstance().getValue("key_important_stocks", "");
-                    if (StringUtils.isBlank(raw)) return;
                     StringBuilder sb = new StringBuilder();
-                    String[] codes = raw.split(";");
                     DefaultTableModel model = null;
                     try { model = (DefaultTableModel) table.getModel(); } catch (Exception ignore) {}
                     int codeIdx = WindowUtils.getColumnIndexByName(StockRefreshHandler.columnNames, "编码");
                     int amountIdx = WindowUtils.getColumnIndexByName(StockRefreshHandler.columnNames, "成交额");
-                    for (String c : codes) {
-                        if (StringUtils.isBlank(c)) continue;
-                        String code = c.trim();
-                        String amountStr = "";
+                    for (int r = 0; model != null && codeIdx >= 0 && amountIdx >= 0 && r < model.getRowCount(); r++) {
                         try {
-                            if (model != null && codeIdx >= 0 && amountIdx >= 0) {
-                                for (int r = 0; r < model.getRowCount(); r++) {
-                                    Object oc = model.getValueAt(r, codeIdx);
-                                    if (oc != null && code.equals(String.valueOf(oc))) {
-                                        amountStr = String.valueOf(model.getValueAt(r, amountIdx));
-                                        break;
-                                    }
-                                }
-                            }
-                        } catch (Exception ignore) {}
-                        if (StringUtils.isNotBlank(amountStr)) {
+                            Object oc = model.getValueAt(r, codeIdx);
+                            Object oa = model.getValueAt(r, amountIdx);
+                            if (oc == null || oa == null) continue;
+                            String code = String.valueOf(oc).trim();
+                            String amountStr = String.valueOf(oa).trim();
+                            if (StringUtils.isBlank(code) || StringUtils.isBlank(amountStr) || "--".equals(amountStr)) continue;
                             if (sb.length() > 0) sb.append(";");
                             sb.append(code).append("=").append(amountStr);
+                        } catch (Exception ignore) {
                         }
                     }
-                    if (sb.length() > 0) PropertiesComponent.getInstance().setValue("key_yesterday_amounts", sb.toString());
+                    if (sb.length() > 0) {
+                        YesterdayAmountStorage.save(parseKeyValueMap(sb.toString()));
+                    }
                 } catch (Exception ignore) { LogUtil.info("保存昨日成交额失败: " + ignore.getMessage()); }
                 // reschedule next day
                 scheduleDailySaveYesterdayAmounts();
             }, delay, TimeUnit.MILLISECONDS);
         } catch (Exception e) { LogUtil.info("调度保存昨日成交额失败: " + e.getMessage()); }
+    }
+
+    private static Map<String, String> parseKeyValueMap(String raw) {
+        Map<String, String> result = new LinkedHashMap<>();
+        if (StringUtils.isBlank(raw)) return result;
+        for (String item : raw.split(";")) {
+            if (StringUtils.isBlank(item) || !item.contains("=")) continue;
+            int idx = item.indexOf('=');
+            String code = StringUtils.defaultString(item.substring(0, idx)).trim();
+            String value = StringUtils.defaultString(item.substring(idx + 1)).trim();
+            if (StringUtils.isBlank(code) || StringUtils.isBlank(value)) continue;
+            result.put(code, value);
+        }
+        return result;
     }
 
     private void bindGlobalKeyListener() {
@@ -1844,7 +1841,10 @@ public class StockWindow {
                                 if (parsed >= 1 && parsed <= accountCount) ai = parsed - 1;
                             } catch (Exception ignore) {}
                         }
-                        double rate = code.toLowerCase().startsWith("hk") ? er : 1.0;
+                        // 港股：表格中的 "持仓市值"、"当日盈亏" 已换算为人民币，汇总时不再重复乘汇率
+                        // 但 now/change 快照值为原始港币价格，计算 totalAmount/totalGain 时需乘汇率
+                        boolean isHk = code.toLowerCase().startsWith("hk");
+                        double rate = isHk ? er : 1.0;
                         double now = Double.NaN, ch = Double.NaN, dayPnlVal = Double.NaN;
                         double[] arr = snap.get(code);
                         if (arr != null) {
@@ -1852,7 +1852,7 @@ public class StockWindow {
                             if (arr.length > 1) ch = arr[1];
                             if (arr.length > 2) dayPnlVal = arr[2];
                         }
-                        // 如果快照缺失，则尝试使用表格中的持仓市值作为回退
+                        // 如果快照缺失 current price，则使用表格中的持股数量和持仓市值反推（港股时该值已为RMB）
                         if (Double.isNaN(now)) {
                             String pvStr = pvMap.getOrDefault(code, "");
                             if (StringUtils.isNotBlank(pvStr)) {
@@ -1860,22 +1860,30 @@ public class StockWindow {
                                     double pv = parseNumberWithUnits(pvStr);
                                     if (!Double.isNaN(pv) && bonds > 0) {
                                         now = pv / bonds;
+                                        // pv 来自表格时已为RMB（港股），不再乘汇率；成本也需同步转为RMB
+                                        if (isHk) {
+                                            rate = 1.0;
+                                            if (!Double.isNaN(cost)) cost = cost * er;
+                                        }
                                     }
                                 } catch (Exception ignore) { now = Double.NaN; }
                             }
                         }
                         if (Double.isNaN(now)) continue;
                         totalAmount[ai] += bonds * now * rate;
-                        // 优先使用表格中的“当日盈亏”列直接相加（确保顶部汇总与表格一致）
+                        // 优先使用表格中的"当日盈亏"列直接相加（确保顶部汇总与表格一致，港股表格值已为RMB）
                         String dayPnlStrFromTable = dayPnlMap.getOrDefault(code, "");
                         double dayPnlFromTable = Double.NaN;
                         if (StringUtils.isNotBlank(dayPnlStrFromTable)) {
                             try { dayPnlFromTable = parseNumberWithUnits(dayPnlStrFromTable.replaceAll("\\+", "").trim()); } catch (Exception ignore) { dayPnlFromTable = Double.NaN; }
                         }
+                        // 表格当日盈亏已根据 calcPositionFields 换算过汇率，不再重复乘 rate
                         if (!Double.isNaN(dayPnlFromTable)) {
-                            dayGainArr[ai] += dayPnlFromTable * rate;
+                            dayGainArr[ai] += dayPnlFromTable;
                         } else if (!Double.isNaN(dayPnlVal)) {
-                            dayGainArr[ai] += dayPnlVal * rate;
+                            // dayPnlVal 来自快照，可能已换算 -- 稳妥处理：港股快照值也经过了 PrecomputedRow
+                            // 它读取的是 bean.dayPnl（已换算），直接累加；备份用 change（HKD原始值需乘rate）
+                            dayGainArr[ai] += dayPnlVal;
                         } else if (!Double.isNaN(ch)) {
                             dayGainArr[ai] += bonds * ch * rate;
                         }

@@ -13,7 +13,7 @@ public class WindowUtils {
     public static final String FUND_TABLE_HEADER_VALUE = "编码,基金名称,估算涨跌,当日净值,估算净值,持仓成本价,持有份额,收益率,收益,更新时间";
     //股票表头
     public static final String STOCK_TABLE_HEADER_KEY = "stock_table_header_key2"; //移动表头时存储的key
-        public static final String STOCK_TABLE_HEADER_VALUE = "编码,股票名称,当日机会,涨跌,涨跌幅,最高价,最低价,今开,昨收,涨速,成交量,成交额,换手率,市盈率,振幅,量比,总市值(亿),流通市值/亿,外盘(亿),内盘(亿),卖一,当前价,买一,成本价,持仓,持仓成本,持仓市值,当日盈亏,仓位,账号,收益率,收益,更新时间,预警,MA5,MA10,MA20,MA30,MA60,MA120,MA240,DIFF,DEA,MACD";
+        public static final String STOCK_TABLE_HEADER_VALUE = "编码,股票名称,当日机会,涨跌,涨跌幅,最高价,最低价,今开,昨收,涨速,成交量,成交额,昨日成交额,换手率,市盈率,振幅,量比,总市值(亿),流通市值/亿,外盘(亿),内盘(亿),卖一,当前价,买一,成本价,持仓,持仓成本,持仓市值,当日盈亏,仓位,账号,收益率,收益,更新时间,预警,MA5,MA10,MA20,MA30,MA60,MA120,MA240,DIFF,DEA,MACD";
     //货币表头
     public static final String COIN_TABLE_HEADER_KEY = "coin_table_header_key2"; //移动表头时存储的key
     public static final String COIN_TABLE_HEADER_VALUE = "编码,当前价,涨跌,涨跌幅,最高价,最低价,更新时间";
@@ -51,6 +51,7 @@ public class WindowUtils {
         remapPinYinMap.put(PinYinUtils.toPinYin("今开"), "今开");
         remapPinYinMap.put(PinYinUtils.toPinYin("成交量"), "成交量");
         remapPinYinMap.put(PinYinUtils.toPinYin("成交额"), "成交额");
+        remapPinYinMap.put(PinYinUtils.toPinYin("昨日成交额"), "昨日成交额");
         remapPinYinMap.put(PinYinUtils.toPinYin("换手率"), "换手率");
             remapPinYinMap.put(PinYinUtils.toPinYin("当日机会"), "当日机会");
         remapPinYinMap.put(PinYinUtils.toPinYin("市盈率"), "市盈率");

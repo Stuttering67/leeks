@@ -14,7 +14,9 @@ import org.apache.commons.lang3.math.NumberUtils;
 import utils.LogUtil;
 import utils.PinYinUtils;
 import utils.StockKlineCalc;
+import utils.ExchangeRateUtil;
 import utils.WindowUtils;
+import utils.YesterdayAmountStorage;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -55,6 +57,10 @@ public abstract class StockRefreshHandler extends DefaultTableModel {
     private final java.util.Set<Integer> pendingRowUpdates = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
     // 渲染器预计算缓存：按 code 存放计算好的数值，减少 EDT 中重复解析/计算
     private final java.util.concurrent.ConcurrentHashMap<String, PrecomputedRow> precomputedByCode = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final String[] PRESERVABLE_ASYNC_COLUMN_NAMES = new String[]{
+            "当日机会", "MA5", "MA10", "MA20", "MA30", "MA60", "MA120", "MA240", "DIFF", "DEA", "MACD",
+            "仓位", "昨日成交额"
+    };
     // originalIndex 快照映射：用于恢复点击排序前的显示顺序（key: normalized code, value: model row index）
     private final java.util.concurrent.ConcurrentHashMap<String, Integer> originalIndexMap = new java.util.concurrent.ConcurrentHashMap<>();
     private final javax.swing.Timer updateBatchTimer;
@@ -374,6 +380,7 @@ public abstract class StockRefreshHandler extends DefaultTableModel {
             {"今开",   "key_stock_col_open"},
             {"成交量", "key_stock_col_volume"},
             {"成交额", "key_stock_col_amount"},
+            {"昨日成交额", "key_stock_col_yesterday"},
             {"MA5",   "key_stock_col_ma5"},
             {"MA10",  "key_stock_col_ma10"},
             {"MA20",  "key_stock_col_ma20"},
@@ -556,6 +563,40 @@ public abstract class StockRefreshHandler extends DefaultTableModel {
             }
         };
         setRendererForCol("换手率", turnoverRenderer);
+
+        // 成交额 vs 昨日成交额专色：今日成交额 < 昨日成交额为绿色，否则为红色
+        int amountIdx = WindowUtils.getColumnIndexByName(columnNames, "成交额");
+        int yesterdayIdx = WindowUtils.getColumnIndexByName(columnNames, "昨日成交额");
+        if (amountIdx >= 0 && yesterdayIdx >= 0) {
+            DefaultTableCellRenderer amountRenderer = new DefaultTableCellRenderer() {
+                @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                    try {
+                        Object codeVal = t.getValueAt(r, codeColumnIndex);
+                        if (codeVal != null && String.valueOf(codeVal).startsWith("---sep")) {
+                            Component sepComp = super.getTableCellRendererComponent(t, "", s, f, r, c);
+                            if (!s) sepComp.setBackground(SEP_ROW_BG);
+                            sepComp.setForeground(JBColor.foreground());
+                            return sepComp;
+                        }
+                    } catch (Exception ignore) {}
+                    Component comp = super.getTableCellRendererComponent(t, v, s, f, r, c);
+                    if (colorful) {
+                        double todayVal = Double.NaN;
+                        double yesterdayVal = Double.NaN;
+                        try { todayVal = parsePossiblyUnitNumber(Objects.toString(v, "")); } catch (Exception ignore) { todayVal = Double.NaN; }
+                        try { yesterdayVal = parsePossiblyUnitNumber(Objects.toString(t.getValueAt(r, yesterdayIdx), "")); } catch (Exception ignore) { yesterdayVal = Double.NaN; }
+                        if (!Double.isNaN(todayVal) && !Double.isNaN(yesterdayVal)) {
+                            if (todayVal < yesterdayVal) setForeground(JBColor.GREEN);
+                            else setForeground(JBColor.RED);
+                        } else {
+                            setForeground(JBColor.foreground());
+                        }
+                    }
+                    return comp;
+                }
+            };
+            table.getColumn(getColumnName(amountIdx)).setCellRenderer(amountRenderer);
+        }
 
         // 市盈率专色: <0 绿色, >500 红色
         DefaultTableCellRenderer peRenderer = new DefaultTableCellRenderer() {
@@ -889,26 +930,28 @@ public abstract class StockRefreshHandler extends DefaultTableModel {
             return;
         }
         try {
+            // 港币汇率：港股金额列需要换算为人民币显示
+            double rate = ExchangeRateUtil.isHkStock(bean.getCode()) ? ExchangeRateUtil.getHkRate() : 1.0;
             // 支持带单位的数值解析（例如 "1.23万"）以及可能带的 "+" 前缀
             double bonds = parsePossiblyUnitNumber(bondsStr.replaceAll("\\+", "").trim());
             String costStr = bean.getCostPrise();
             if (StringUtils.isNotBlank(costStr) && !"--".equals(costStr)) {
                 double cost = parsePossiblyUnitNumber(costStr.replaceAll("\\+", "").trim());
-                bean.setPositionCost(String.format("%.2f", bonds * cost));
+                bean.setPositionCost(String.format("%.2f", bonds * cost * rate));
             } else {
                 bean.setPositionCost("");
             }
             String nowStr = bean.getNow();
             if (StringUtils.isNotBlank(nowStr) && !"--".equals(nowStr)) {
                 double now = parsePossiblyUnitNumber(nowStr.replaceAll("\\+", "").trim());
-                bean.setPositionValue(String.format("%.2f", bonds * now));
+                bean.setPositionValue(String.format("%.2f", bonds * now * rate));
             } else {
                 bean.setPositionValue("");
             }
             String changeStr = bean.getChange();
             if (StringUtils.isNotBlank(changeStr) && !"--".equals(changeStr)) {
                 double change = parsePossiblyUnitNumber(changeStr.replaceAll("\\+", "").trim());
-                bean.setDayPnl(String.format("%.2f", bonds * change));
+                bean.setDayPnl(String.format("%.2f", bonds * change * rate));
             } else {
                 bean.setDayPnl("");
             }
@@ -958,9 +1001,6 @@ public abstract class StockRefreshHandler extends DefaultTableModel {
     /** 异步计算K线并刷新表格对应行 */
     private void calcKlineFieldsAsync(StockBean bean) {
         if (bean == null) return;
-        bean.setMa5("--"); bean.setMa10("--"); bean.setMa20("--"); bean.setMa30("--");
-        bean.setMa60("--"); bean.setMa120("--"); bean.setMa240("--");
-        bean.setDiff("--"); bean.setDea("--"); bean.setMacd("--");
         final String code = bean.getCode();
         final DefaultTableModel model = this;
         klineExecutor.submit(() -> {
@@ -1292,8 +1332,12 @@ public abstract class StockRefreshHandler extends DefaultTableModel {
             String persistedBonds = getBondsRaw(bean.getCode());
             if (persistedBonds != null) bean.setBonds(persistedBonds);
         } catch (Exception ignore) {}
+        try {
+            bean.setYesterdayAmount(YesterdayAmountStorage.getForCode(bean.getCode()));
+        } catch (Exception ignore) {}
         calcPositionFields(bean);
-        calcPositionRatio(bean);
+        // 仓位占比在批次处理完毕后由 recalcAllPositionRatios() 统一计算，
+        // 避免逐行计算时因模型内其他行尚未更新而导致的闪烁。
         calcKlineFieldsAsync(bean);
         // 更新预计算缓存以便渲染器快速访问
         try { updatePrecomputedForCode(bean.getCode(), bean); } catch (Exception ignore) {}
@@ -1311,10 +1355,32 @@ public abstract class StockRefreshHandler extends DefaultTableModel {
         // 获取行
         int index = findRowIndex(codeColumnIndex, bean.getCode());
         if (index >= 0) {
+            preserveAsyncFieldsForExistingRow(index, convertData);
             updateRow(index, convertData);
         } else {
             addRow(convertData);
         }
+    }
+
+    private void preserveAsyncFieldsForExistingRow(int rowIndex, Vector<Object> rowData) {
+        if (rowIndex < 0 || rowIndex >= dataVector.size() || rowData == null) return;
+        Vector<?> existing = dataVector.get(rowIndex);
+        if (existing == null) return;
+        for (String colName : PRESERVABLE_ASYNC_COLUMN_NAMES) {
+            int colIndex = WindowUtils.getColumnIndexByName(columnNames, colName);
+            if (colIndex < 0 || colIndex >= rowData.size() || colIndex >= existing.size()) continue;
+            Object newValue = rowData.get(colIndex);
+            Object oldValue = existing.get(colIndex);
+            if (isPlaceholderValue(newValue) && !isPlaceholderValue(oldValue)) {
+                rowData.set(colIndex, oldValue);
+            }
+        }
+    }
+
+    private boolean isPlaceholderValue(Object value) {
+        if (value == null) return true;
+        String text = Objects.toString(value, "").trim();
+        return text.length() == 0 || "--".equals(text);
     }
 
     /**
@@ -1335,6 +1401,13 @@ public abstract class StockRefreshHandler extends DefaultTableModel {
                 normalized.set(hiddenIndex, existingHidden);
             }
         }
+        try {
+            if (rowIndex >= 0 && rowIndex < dataVector.size()) {
+                // Note: async field preservation is already done by
+                // preserveAsyncFieldsForExistingRow() before updateRow() is
+                // called, so we don't repeat it here.
+            }
+        } catch (Exception ignore) {}
         dataVector.set(rowIndex, normalized);
         // 将需要刷新的行加入集合，实际刷新由定时器在 EDT 上合并执行，避免大量连续 repaint
         try { pendingRowUpdates.add(rowIndex); } catch (Exception ignore) {}

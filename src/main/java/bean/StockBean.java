@@ -18,6 +18,7 @@ public class StockBean {
     private String open;     // 今开
     private String volume;   // 成交量(手)
     private String amount;   // 成交额(万)
+    private String yesterdayAmount; // 昨日成交额(万)
     private String turnover; // 换手率(%, 仅腾讯)
     private String pe;       // 市盈率(仅腾讯)
     private String amplitude;// 振幅(%, 仅腾讯)
@@ -174,6 +175,8 @@ public class StockBean {
                 return formatVol(getVolume());
             case "成交额":
                 return formatAmount(getAmount());
+            case "昨日成交额":
+                return formatAmount(getYesterdayAmount());
             case "换手率":
                 String to = getTurnover();
                 if (StringUtils.isBlank(to) || "--".equals(to)) return "--";

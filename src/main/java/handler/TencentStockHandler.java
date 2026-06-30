@@ -2,6 +2,7 @@ package handler;
 
 import bean.StockBean;
 import org.apache.commons.lang3.StringUtils;
+import utils.ExchangeRateUtil;
 import utils.HttpClientPool;
 import utils.LogUtil;
 
@@ -172,8 +173,12 @@ public class TencentStockHandler extends StockRefreshHandler {
                         String bondStr = bean.getBonds();
                         if (StringUtils.isNotBlank(bondStr)) {
                             BigDecimal bondDec = new BigDecimal(bondStr);
-                            bean.setIncome(incomeDiff.multiply(bondDec)
-                                    .setScale(2, RoundingMode.HALF_UP).toString());
+                            BigDecimal incomeAmt = incomeDiff.multiply(bondDec);
+                            // 港股收益换算为人民币
+                            if (ExchangeRateUtil.isHkStock(code)) {
+                                incomeAmt = incomeAmt.multiply(BigDecimal.valueOf(ExchangeRateUtil.getHkRate()));
+                            }
+                            bean.setIncome(incomeAmt.setScale(2, RoundingMode.HALF_UP).toString());
                         }
                     } catch (NumberFormatException ignore) {}
                 }
