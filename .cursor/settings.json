@@ -1,0 +1,7 @@
+{
+  "plugins": {
+    "ecc/ecc": {
+      "enabled": true
+    }
+  }
+}
